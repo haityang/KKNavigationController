@@ -12,13 +12,14 @@
 #import <QuartzCore/QuartzCore.h>
 #import <math.h>
 
-@interface KKNavigationController ()
+@interface KKNavigationController ()<UIGestureRecognizerDelegate, UINavigationControllerDelegate>
 {
     CGPoint startTouch;
     
     UIImageView *lastScreenShotView;
     UIView *blackMask;
-
+    UIPanGestureRecognizer *_recognizer;
+    BOOL _isAnimation;
 }
 
 @property (nonatomic,retain) UIView *backgroundView;
@@ -29,18 +30,6 @@
 @end
 
 @implementation KKNavigationController
-
-- (id)initWithNibName:(NSString *)nibNameOrNil bundle:(NSBundle *)nibBundleOrNil
-{
-    self = [super initWithNibName:nibNameOrNil bundle:nibBundleOrNil];
-    if (self) {
-        
-        self.screenShotsList = [[NSMutableArray alloc]initWithCapacity:2];
-        self.canDragBack = YES;
-        
-    }
-    return self;
-}
 
 - (void)dealloc
 {
@@ -54,16 +43,32 @@
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-
-    UIImageView *shadowImageView = [[UIImageView alloc]initWithImage:[UIImage imageNamed:@"leftside_shadow_bg"]];
-    shadowImageView.frame = CGRectMake(-10, 0, 10, self.view.frame.size.height);
-    [self.view addSubview:shadowImageView];
     
-    UIPanGestureRecognizer *recognizer = [[UIPanGestureRecognizer alloc]initWithTarget:self
+    CGRect frame = self.view.frame;
+    
+    //set background view
+    self.backgroundView = [[UIView alloc]initWithFrame:CGRectMake(0, 0, frame.size.width , frame.size.height)];
+    
+    lastScreenShotView = [[UIImageView alloc] initWithFrame:CGRectMake(0, 0, frame.size.width , frame.size.height)];
+    [self.backgroundView addSubview:lastScreenShotView];
+    
+    blackMask = [[UIView alloc]initWithFrame:CGRectMake(0, 0, frame.size.width , frame.size.height)];
+    blackMask.backgroundColor = [UIColor blackColor];
+    [self.backgroundView addSubview:blackMask];
+    
+    
+    self.screenShotsList = [[NSMutableArray alloc]initWithCapacity:2];
+    self.canDragBack = YES;
+    
+    _recognizer = [[UIPanGestureRecognizer alloc]initWithTarget:self
                                                                                 action:@selector(paningGestureReceive:)];
-    [recognizer delaysTouchesBegan];
-    [self.view addGestureRecognizer:recognizer];
+    _recognizer.delegate = self;
+    [_recognizer delaysTouchesBegan];
+    [self.view addGestureRecognizer:_recognizer];
+    
+    super.delegate = self;
 }
+
 
 - (void)didReceiveMemoryWarning
 {
@@ -75,7 +80,7 @@
 {
     [self.screenShotsList addObject:[self capture]];
     
-    [super pushViewController:viewController animated:animated];
+    [super pushViewController:viewController animated:animated ];
 }
 
 - (UIViewController *)popViewControllerAnimated:(BOOL)animated
@@ -146,34 +151,18 @@
         _isMoving = YES;
         startTouch = touchPoint;
         
-        if (!self.backgroundView)
-        {
-            CGRect frame = self.view.frame;
-            
-            self.backgroundView = [[UIView alloc]initWithFrame:CGRectMake(0, 0, frame.size.width , frame.size.height)];
+        if (self.view.superview ) {
+            [self.backgroundView removeFromSuperview];
             [self.view.superview insertSubview:self.backgroundView belowSubview:self.view];
-            
-            blackMask = [[UIView alloc]initWithFrame:CGRectMake(0, 0, frame.size.width , frame.size.height)];
-            blackMask.backgroundColor = [UIColor blackColor];
-            [self.backgroundView addSubview:blackMask];
         }
         
-        self.backgroundView.hidden = NO;
-        
-        if (lastScreenShotView) [lastScreenShotView removeFromSuperview];
-        
-       
-        UIImage *lastScreenShot = [self.screenShotsList lastObject];
-        
-        lastScreenShotView = [[UIImageView alloc]initWithImage:lastScreenShot];
-        
+        lastScreenShotView.image = [self.screenShotsList lastObject];
         startBackViewX = startX;
         [lastScreenShotView setFrame:CGRectMake(startBackViewX,
                                                 lastScreenShotView.frame.origin.y,
                                                 lastScreenShotView.frame.size.height,
                                                 lastScreenShotView.frame.size.width)];
-
-        [self.backgroundView insertSubview:lastScreenShotView belowSubview:blackMask];
+         self.backgroundView.hidden = NO;
         
     }else if (recoginzer.state == UIGestureRecognizerStateEnded){
         
@@ -220,7 +209,21 @@
     }
 }
 
+- (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer
+{
+    return !_isAnimation;
+}
 
+
+- (void)navigationController:(UINavigationController *)navigationController willShowViewController:(UIViewController *)viewController animated:(BOOL)animated
+{
+    _isAnimation = YES;
+}
+
+- (void)navigationController:(UINavigationController *)navigationController didShowViewController:(UIViewController *)viewController animated:(BOOL)animated
+{
+    _isAnimation = NO;
+}
 
 @end
 
